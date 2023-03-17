@@ -1,0 +1,49 @@
+p: Project = input;
+metrics: output collection[string] of string;
+
+statement_count:int;
+method_count:int;
+
+statement_tempmax:int;
+statement_tempmax_name:string;
+method_tempmax:int;
+method_tempmax_name:string;
+
+counter := visitor {
+    before n: Method -> {
+        method_count = method_count + 1;
+    }
+    before n: Statement -> {
+        statement_count = statement_count + 1;
+    }
+};
+
+visit(p, visitor {
+    before n: CodeRepository -> {
+        statement_tempmax = 0;
+        statement_tempmax_name = "null";
+        method_tempmax = 0;
+        method_tempmax_name = "null";
+        
+        snapshot := getsnapshot(n, "SOURCE_JAVA_JLS");
+
+        foreach(i :int; def(snapshot[i])){
+            statement_count = 0;
+            method_count = 0;
+            visit(snapshot[i], counter);
+            if(method_count > method_tempmax) {
+                method_tempmax = method_count;    
+                method_tempmax_name = snapshot[i].name;
+            }
+            if (statement_count > statement_tempmax) {
+                statement_tempmax = statement_count;
+                statement_tempmax_name = snapshot[i].name;
+            }
+        }
+        
+        metrics[n.url] << method_tempmax_name + ":" + string(method_tempmax) + ":" + 
+                          statement_tempmax_name + ":" + string(statement_tempmax);
+        
+        stop;
+    }
+});
